@@ -24,7 +24,8 @@ jobs:
           pip install requests beautifulsoup4
 
       - name: Run scraper
-        run: python nbpower_scraper_bypass.py
+      run: python fetch_nbpower_outages.py
+
 
       - name: Commit & Push if changed
         run: |
