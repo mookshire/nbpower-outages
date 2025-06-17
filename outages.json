@@ -1,6 +1,7 @@
 [
   {
-    "customers_affected": 393,
-    "outages": 7
+    "region": "Unknown",
+    "outages": 7,
+    "customers_affected": 393
   }
 ]
