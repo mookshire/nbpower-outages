@@ -1,14 +1,13 @@
-name: Scrape NB Power Outages
+name: Update outages.json
 
 on:
   schedule:
     - cron: '*/15 * * * *'  # Every 15 minutes
-  workflow_dispatch:        # Manual trigger support
+  workflow_dispatch:        # Manual run button
 
 jobs:
   run-script:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -24,8 +23,7 @@ jobs:
           pip install requests beautifulsoup4
 
       - name: Run scraper
-      run: python fetch_nbpower_outages.py
-
+        run: python fetch_nbpower_outages.py
 
       - name: Commit & Push if changed
         run: |
