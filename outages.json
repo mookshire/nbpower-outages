@@ -1,7 +1,72 @@
 [
   {
-    "region": "Unknown",
-    "outages": 4,
-    "customers_affected": 15
+    "region": "Acadian Peninsula",
+    "outages": 0,
+    "customers_affected": 0
+  },
+  {
+    "region": "Carleton",
+    "outages": 0,
+    "customers_affected": 0
+  },
+  {
+    "region": "Central York Sunbury",
+    "outages": 1,
+    "customers_affected": 1
+  },
+  {
+    "region": "Chaleur",
+    "outages": 0,
+    "customers_affected": 0
+  },
+  {
+    "region": "Charlotte Southwest",
+    "outages": 2,
+    "customers_affected": 6
+  },
+  {
+    "region": "Kennebecasis Valley Fundy",
+    "outages": 0,
+    "customers_affected": 0
+  },
+  {
+    "region": "Kent",
+    "outages": 0,
+    "customers_affected": 0
+  },
+  {
+    "region": "Kings/Queens",
+    "outages": 1,
+    "customers_affected": 8
+  },
+  {
+    "region": "Moncton Riverview Dieppe",
+    "outages": 0,
+    "customers_affected": 0
+  },
+  {
+    "region": "Northumberland Miramichi",
+    "outages": 0,
+    "customers_affected": 0
+  },
+  {
+    "region": "Restigouche",
+    "outages": 0,
+    "customers_affected": 0
+  },
+  {
+    "region": "Sackville Port Elgin",
+    "outages": 0,
+    "customers_affected": 0
+  },
+  {
+    "region": "Shediac Cap Pele",
+    "outages": 0,
+    "customers_affected": 0
+  },
+  {
+    "region": "Victoria Madawaska",
+    "outages": 0,
+    "customers_affected": 0
   }
 ]
