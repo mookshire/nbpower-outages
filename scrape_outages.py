@@ -1,8 +1,9 @@
-import asyncio
 import json
+import asyncio
 from playwright.async_api import async_playwright
 
-REGIONS = [
+# Your districts and their codes (custom order)
+districts = [
     ("York", "0110"),
     ("K.V.", "0210"),
     ("Carleton", "0130"),
@@ -24,7 +25,7 @@ async def fetch_region_data(playwright, name, code):
     context = await browser.new_context()
     page = await context.new_page()
 
-    # Add cookie to bypass language selection
+    # Set language cookie to bypass language selector
     await context.add_cookies([{
         "name": "Language",
         "value": "en-CA",
@@ -36,13 +37,18 @@ async def fetch_region_data(playwright, name, code):
 
     url = f"https://www.nbpower.com/Open/SearchOutageResults.aspx?district={code}&il=0"
     print(f"▶ Visiting {name} district {code}")
+
     try:
-        await page.goto(url, timeout=30000)
-        await page.wait_for_selector("#ctl00_cphMain_lblOutageCount", timeout=15000)
+        await page.goto(url, wait_until="networkidle", timeout=45000)
+        await page.wait_for_selector("#ctl00_cphMain_lblOutageCount", timeout=30000)
         outages = await page.inner_text("#ctl00_cphMain_lblOutageCount")
         customers = await page.inner_text("#ctl00_cphMain_lblCustomerCount")
     except Exception as e:
         print(f"❌ {name} FAILED: {e}")
+        # Dump page content to debug what's going on
+        content = await page.content()
+        with open(f"{name.replace(' ', '_').lower()}_error.html", "w", encoding="utf-8") as f:
+            f.write(content)
         outages = -1
         customers = -1
     await browser.close()
@@ -55,10 +61,10 @@ async def fetch_region_data(playwright, name, code):
 async def main():
     async with async_playwright() as playwright:
         results = []
-        for name, code in REGIONS:
+        for name, code in districts:
             data = await fetch_region_data(playwright, name, code)
             results.append(data)
-        with open("outages.json", "w") as f:
+        with open("outages.json", "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2)
         print("✅ Done writing outages.json")
 
