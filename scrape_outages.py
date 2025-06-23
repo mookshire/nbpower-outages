@@ -1,41 +1,72 @@
-import json import time from playwright.sync_api import sync_playwright
+import requests
+from bs4 import BeautifulSoup
+import json
+import re
 
-Districts to scrape
+districts = {
+    "0110": "York",
+    "0120": "K.V.",
+    "0130": "Carleton",
+    "0140": "Charlotte",
+    "0150": "Kings",
+    "0160": "Kent",
+    "0170": "Moncton",
+    "0180": "Miramichi",
+    "0190": "Grand Falls",
+    "0200": "Acadian",
+    "0210": "Heat",
+    "0220": "Restigouche",
+    "0230": "Sackville",
+    "0240": "Shediac",
+}
 
-DISTRICTS = { "York": "0110", "K.V.": "0210", "Carleton": "0130", "Charlotte": "0240", "Kings": "0220", "Kent": "0510", "Moncton": "0520", "Miramichi": "0310", "Grand Falls": "0140", "Acadian": "0410", "Heat (Chaleur)": "0420", "Restigouche": "0320", "Sackville": "0610", "Shediac": "0620" }
+base_url = "https://www.nbpower.com/Open/SearchOutageResults.aspx?district={}&il=0"
 
-BASE_URL = "https://www.nbpower.com/Open/SearchOutageResults.aspx?district={}&il=0"
+headers = {
+    "User-Agent": "Mozilla/5.0"
+}
 
-def scrape_district(playwright, name, code): browser = playwright.chromium.launch() page = browser.new_page() url = BASE_URL.format(code) print(f"▶ Visiting {name} district {code}")
+outage_data = []
 
-try:
-    page.goto(url, timeout=60000)
+for district_code, region_name in districts.items():
+    url = base_url.format(district_code)
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
 
-    # Check if we're still stuck on the language selection page
-    if "ReturnUrl" in page.url or "Language" in page.content():
-        print(f"❌ {name} FAILED: Still on language page")
-        return {"region": name, "outages": -1, "customers_affected": -1}
+        table = soup.find("table", class_="rgMasterTable")
+        if not table:
+            outages = 0
+            customers = 0
+        else:
+            rows = table.find_all("tr", class_=re.compile("rgRow|rgAltRow"))
+            outages = len(rows)
 
-    # Wait up to 30 seconds for the outage data
-    page.wait_for_selector("#ctl00_cphMain_lblOutageCount", timeout=30000)
-    outages = int(page.query_selector("#ctl00_cphMain_lblOutageCount").inner_text())
-    customers = int(page.query_selector("#ctl00_cphMain_lblCustAffectedCount").inner_text())
+            customers = 0
+            for row in rows:
+                cells = row.find_all("td")
+                if len(cells) >= 5:
+                    count_str = cells[4].text.strip().replace(",", "")
+                    try:
+                        customers += int(count_str)
+                    except ValueError:
+                        pass
 
-    print(f"✅ {name} OK: {outages} outages, {customers} customers affected")
-    return {"region": name, "outages": outages, "customers_affected": customers}
-
-except Exception as e:
-    print(f"❌ {name} FAILED: {e}")
-    return {"region": name, "outages": -1, "customers_affected": -1}
-
-finally:
-    browser.close()
-
-def main(): results = [] with sync_playwright() as p: for name, code in DISTRICTS.items(): results.append(scrape_district(p, name, code)) time.sleep(1)  # Brief pause to avoid hammering the server
+        outage_data.append({
+            "region": region_name,
+            "outages": outages,
+            "customers_affected": customers
+        })
+    except Exception as e:
+        print(f"Error fetching data for {region_name} ({district_code}): {e}")
+        outage_data.append({
+            "region": region_name,
+            "outages": None,
+            "customers_affected": None,
+            "error": str(e)
+        })
 
 with open("outages.json", "w") as f:
-    json.dump(results, f, indent=2)
-print("✅ Done writing outages.json")
-
-if name == "main": main()
+    json.dump(outage_data, f, indent=2)
 
