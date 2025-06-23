@@ -23,35 +23,39 @@ def scrape():
 
     with sync_playwright() as p:
         print("Launching browser...")
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(headless=True, timeout=60000)
         page = browser.new_page()
 
-        # Step 1: Set language to English
-        print("Setting language to English...")
+        # Set English
+        print("Setting language...")
         try:
-            page.goto("https://www.nbpower.com/Open/Outages.aspx?lang=en", timeout=30000)
+            page.goto("https://www.nbpower.com/Open/Outages.aspx?lang=en", timeout=20000)
+            print("Language set to English.")
         except TimeoutError:
-            print("Language bypass timeout – continuing anyway.")
+            print("Language page timed out — continuing anyway.")
 
-        # Step 2: Scrape each district
+        # Loop through regions
         for name, code in regions:
             url = f"https://www.nbpower.com/Open/SearchOutageResults.aspx?district={code}&il=0"
-            print(f"Scraping {name} from {url}")
+            print(f">>> Fetching {name} - {url}")
+
             try:
-                page.goto(url, timeout=30000)
+                page.goto(url, timeout=25000)
 
                 outage_text = page.inner_text("#ctl00_cphMain_lblOutageCount")
                 cust_text = page.inner_text("#ctl00_cphMain_lblCustAffected")
+
+                print(f"{name}: Found '{outage_text}', '{cust_text}'")
 
                 outages = int(outage_text.split()[0]) if outage_text else -1
                 customers = int(cust_text.split()[0].replace(",", "")) if cust_text else 0
 
             except TimeoutError:
-                print(f"Timeout while loading {url}")
+                print(f"⚠️ Timeout on {name}")
                 outages = -1
                 customers = -1
             except Exception as e:
-                print(f"Error in {name}: {str(e)}")
+                print(f"❌ Error in {name}: {str(e)}")
                 outages = -1
                 customers = -1
 
@@ -64,9 +68,13 @@ def scrape():
         browser.close()
         print("Browser closed.")
 
-    with open("outages.json", "w") as f:
-        json.dump(results, f, indent=2)
-        print("outages.json written successfully.")
+    # Save JSON
+    try:
+        with open("outages.json", "w") as f:
+            json.dump(results, f, indent=2)
+        print("✅ outages.json written successfully.")
+    except Exception as e:
+        print(f"❌ Failed to write JSON: {str(e)}")
 
 if __name__ == "__main__":
     scrape()
