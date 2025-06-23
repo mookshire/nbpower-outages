@@ -2,8 +2,7 @@ import asyncio
 import json
 from playwright.async_api import async_playwright
 
-# Districts and their codes (in desired display order)
-DISTRICTS = [
+REGIONS = [
     ("York", "0110"),
     ("K.V.", "0210"),
     ("Carleton", "0130"),
@@ -20,10 +19,21 @@ DISTRICTS = [
     ("Shediac", "0620")
 ]
 
-# Core scraping logic
 async def fetch_region_data(playwright, name, code):
     browser = await playwright.chromium.launch(headless=True)
-    page = await browser.new_page()
+    context = await browser.new_context()
+    page = await context.new_page()
+
+    # Add cookie to bypass language selection
+    await context.add_cookies([{
+        "name": "Language",
+        "value": "en-CA",
+        "domain": "www.nbpower.com",
+        "path": "/",
+        "httpOnly": False,
+        "secure": True
+    }])
+
     url = f"https://www.nbpower.com/Open/SearchOutageResults.aspx?district={code}&il=0"
     print(f"▶ Visiting {name} district {code}")
     try:
@@ -38,21 +48,19 @@ async def fetch_region_data(playwright, name, code):
     await browser.close()
     return {
         "region": name,
-        "outages": int(outages.replace(',', '')) if str(outages).isdigit() else -1,
-        "customers_affected": int(customers.replace(',', '')) if str(customers).isdigit() else -1
+        "outages": int(outages.replace(',', '')) if str(outages).replace(',', '').isdigit() else -1,
+        "customers_affected": int(customers.replace(',', '')) if str(customers).replace(',', '').isdigit() else -1
     }
 
-# Main orchestration
 async def main():
-    results = []
     async with async_playwright() as playwright:
-        for name, code in DISTRICTS:
+        results = []
+        for name, code in REGIONS:
             data = await fetch_region_data(playwright, name, code)
             results.append(data)
-    with open("outages.json", "w") as f:
-        json.dump(results, f, indent=2)
-    print("✅ Done writing outages.json")
+        with open("outages.json", "w") as f:
+            json.dump(results, f, indent=2)
+        print("✅ Done writing outages.json")
 
-# Entry point
 if __name__ == "__main__":
     asyncio.run(main())
