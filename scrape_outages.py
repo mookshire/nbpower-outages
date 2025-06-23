@@ -1,5 +1,6 @@
 import json
-from playwright.sync_api import sync_playwright, TimeoutError
+from datetime import datetime
+from playwright.sync_api import sync_playwright
 
 regions = [
     ("York", "0110"),
@@ -20,23 +21,23 @@ regions = [
 
 def scrape():
     print(">>> STARTING REGION SCRAPE")
-
     results = []
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(locale='en-CA')
+        context.set_default_timeout(15000)
         page = context.new_page()
 
         for name, code in regions:
             url = f"https://www.nbpower.com/Open/SearchOutageResults.aspx?district={code}&il=0"
             print(f"→ {name}: Visiting {url}")
             try:
-                page.goto(url, timeout=20000)
+                page.goto(url)
+                page.wait_for_selector("#ctl00_cphMain_lblOutageCount")
                 outage = page.inner_text("#ctl00_cphMain_lblOutageCount")
                 customers = page.inner_text("#ctl00_cphMain_lblCustAffected")
                 print(f"✓ {name}: {outage}, {customers}")
-
                 results.append({
                     "region": name,
                     "outages": int(outage.split()[0]),
@@ -52,12 +53,14 @@ def scrape():
 
         browser.close()
 
+    results.append({"timestamp": datetime.utcnow().isoformat() + "Z"})
+
     try:
         with open("outages.json", "w") as f:
             json.dump(results, f, indent=2)
-        print("✅ JSON written")
+        print("✅ JSON written and saved.")
     except Exception as e:
-        print(f"❌ JSON write failed: {e}")
+        print(f"❌ Failed to write JSON: {e}")
 
     print(">>> SCRAPE DONE")
 
