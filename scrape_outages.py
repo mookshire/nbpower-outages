@@ -1,61 +1,77 @@
 import json
 from playwright.sync_api import sync_playwright
 
-# NB Power district codes and region names
-districts = [
-    ("0110", "York"),
-    ("0210", "K.V."),
-    ("0130", "Carleton"),
-    ("0240", "Charlotte"),
-    ("0220", "Kings"),
-    ("0510", "Kent"),
-    ("0520", "Moncton"),
-    ("0310", "Miramichi"),
-    ("0140", "Grand Falls"),
-    ("0410", "Acadian"),
-    ("0420", "Heat"),
-    ("0320", "Restigouche"),
-    ("0610", "Sackville"),
-    ("0620", "Shediac")
-]
+REGIONS = {
+    "York": "0110",
+    "K.V.": "0120",
+    "Carleton": "0130",
+    "Charlotte": "0140",
+    "Kings": "0150",
+    "Kent": "0210",
+    "Moncton": "0220",
+    "Miramichi": "0230",
+    "Grand Falls": "0240",
+    "Acadian": "0410",
+    "Heat": "0420",
+    "Restigouche": "0430",
+    "Sackville": "0440",
+    "Shediac": "0450",
+}
 
-# Helper function to extract numbers from a selector (or return -1)
-def safe_extract(page, selector):
-    try:
-        return int(page.locator(selector).inner_text().strip().replace(",", ""))
-    except:
-        return -1
+def scrape():
+    results = []
 
-with sync_playwright() as p:
-    browser = p.chromium.launch()
-    page = browser.new_page()
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context()
+        
+        # Inject lang=en cookie
+        context.add_cookies([{
+            "name": "lang",
+            "value": "en",
+            "domain": ".nbpower.com",
+            "path": "/",
+            "httpOnly": False,
+            "secure": True,
+            "sameSite": "Lax"
+        }])
 
-    data = []
+        page = context.new_page()
 
-    for code, name in districts:
-        print(f"▶ Visiting {name} district {code}")
-        try:
-            page.goto(f"https://www.nbpower.com/Open/SearchOutageResults.aspx?district={code}&il=0", timeout=60000)
-            page.wait_for_selector("#ctl00_cphMain_lblOutageCount", timeout=30000)
+        for region_name, code in REGIONS.items():
+            url = f"https://www.nbpower.com/Open/SearchOutageResults.aspx?district={code}&il=0"
+            try:
+                page.goto(url, timeout=60000)
+                page.wait_for_selector("#ctl00_cphMain_UpdatePanel1", timeout=10000)
 
-            outages = safe_extract(page, "#ctl00_cphMain_lblOutageCount")
-            customers = safe_extract(page, "#ctl00_cphMain_lblCustAffect")
+                # Pull the outage and customer numbers from the table
+                table_text = page.inner_text("#ctl00_cphMain_UpdatePanel1")
+                outages = customers = -1
 
-            print(f"✔ {name}: {outages} outages, {customers} customers affected")
-        except Exception as e:
-            print(f"❌ {name} FAILED: {e}")
-            outages = -1
-            customers = -1
+                for line in table_text.splitlines():
+                    if "Number of Active Outages" in line:
+                        outages = int(line.split(":")[-1].strip())
+                    elif "Number of Customers Affected" in line:
+                        customers = int(line.split(":")[-1].strip())
 
-        data.append({
-            "region": name,
-            "outages": outages,
-            "customers_affected": customers
-        })
+                results.append({
+                    "region": region_name,
+                    "outages": outages,
+                    "customers_affected": customers
+                })
+            except Exception as e:
+                print(f"Error with region {region_name}: {e}")
+                results.append({
+                    "region": region_name,
+                    "outages": -1,
+                    "customers_affected": -1
+                })
 
-    browser.close()
+        context.close()
+        browser.close()
 
     with open("outages.json", "w") as f:
-        json.dump(data, f, indent=2)
+        json.dump(results, f, indent=2)
 
-    print("✅ Done writing outages.json")
+if __name__ == "__main__":
+    scrape()
