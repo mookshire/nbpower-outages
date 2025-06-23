@@ -1,59 +1,61 @@
-import requests
-from bs4 import BeautifulSoup
 import json
+from playwright.sync_api import sync_playwright
 
-# Map region nicknames to NB Power district codes
-districts = {
-    "York": "0110",
-    "K.V.": "0210",
-    "Carleton": "0130",
-    "Charlotte": "0240",
-    "Kings": "0220",
-    "Kent": "0510",
-    "Moncton": "0520",
-    "Miramichi": "0310",
-    "Grand Falls": "0140",
-    "Acadian": "0410",
-    "Heat": "0420",
-    "Restigouche": "0320",
-    "Sackville": "0610",
-    "Shediac": "0620"
-}
+# NB Power district codes and region names
+districts = [
+    ("0110", "York"),
+    ("0210", "K.V."),
+    ("0130", "Carleton"),
+    ("0240", "Charlotte"),
+    ("0220", "Kings"),
+    ("0510", "Kent"),
+    ("0520", "Moncton"),
+    ("0310", "Miramichi"),
+    ("0140", "Grand Falls"),
+    ("0410", "Acadian"),
+    ("0420", "Heat"),
+    ("0320", "Restigouche"),
+    ("0610", "Sackville"),
+    ("0620", "Shediac")
+]
 
-base_url = "https://www.nbpower.com/Open/SearchOutageResults.aspx?district={}&il=0"
-
-headers = {
-    "User-Agent": "Mozilla/5.0"
-}
-
-results = []
-
-for region, code in districts.items():
-    url = base_url.format(code)
+# Helper function to extract numbers from a selector (or return -1)
+def safe_extract(page, selector):
     try:
-        response = requests.get(url, headers=headers, timeout=15)
-        soup = BeautifulSoup(response.text, "html.parser")
+        return int(page.locator(selector).inner_text().strip().replace(",", ""))
+    except:
+        return -1
 
-        outage_count = soup.find("span", id="ctl00_cphMain_lblOutageCount")
-        customer_count = soup.find("span", id="ctl00_cphMain_lblCustAffect")
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
 
-        outages = int(outage_count.text.strip()) if outage_count else -1
-        customers = int(customer_count.text.strip().replace(",", "")) if customer_count else -1
+    data = []
 
-        results.append({
-            "region": region,
+    for code, name in districts:
+        print(f"▶ Visiting {name} district {code}")
+        try:
+            page.goto(f"https://www.nbpower.com/Open/SearchOutageResults.aspx?district={code}&il=0", timeout=60000)
+            page.wait_for_selector("#ctl00_cphMain_lblOutageCount", timeout=30000)
+
+            outages = safe_extract(page, "#ctl00_cphMain_lblOutageCount")
+            customers = safe_extract(page, "#ctl00_cphMain_lblCustAffect")
+
+            print(f"✔ {name}: {outages} outages, {customers} customers affected")
+        except Exception as e:
+            print(f"❌ {name} FAILED: {e}")
+            outages = -1
+            customers = -1
+
+        data.append({
+            "region": name,
             "outages": outages,
             "customers_affected": customers
         })
 
-    except Exception as e:
-        results.append({
-            "region": region,
-            "outages": -1,
-            "customers_affected": -1
-        })
+    browser.close()
 
-# Write to outages.json
-with open("outages.json", "w") as f:
-    json.dump(results, f, indent=2)
+    with open("outages.json", "w") as f:
+        json.dump(data, f, indent=2)
 
+    print("✅ Done writing outages.json")
