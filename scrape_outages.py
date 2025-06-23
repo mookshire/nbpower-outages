@@ -25,7 +25,7 @@ def scrape():
         browser = p.chromium.launch(headless=True)
         context = browser.new_context()
         
-        # Inject lang=en cookie
+        # Inject lang cookie to bypass language screen
         context.add_cookies([{
             "name": "lang",
             "value": "en",
@@ -42,12 +42,16 @@ def scrape():
             url = f"https://www.nbpower.com/Open/SearchOutageResults.aspx?district={code}&il=0"
             try:
                 page.goto(url, timeout=60000)
+                html = page.content()
+
+                # Check for language page fallback
+                if "Français" in html and "English" in html:
+                    raise Exception("Language selector appeared")
+
                 page.wait_for_selector("#ctl00_cphMain_UpdatePanel1", timeout=10000)
-
-                # Pull the outage and customer numbers from the table
                 table_text = page.inner_text("#ctl00_cphMain_UpdatePanel1")
-                outages = customers = -1
 
+                outages = customers = -1
                 for line in table_text.splitlines():
                     if "Number of Active Outages" in line:
                         outages = int(line.split(":")[-1].strip())
@@ -59,6 +63,7 @@ def scrape():
                     "outages": outages,
                     "customers_affected": customers
                 })
+
             except Exception as e:
                 print(f"Error with region {region_name}: {e}")
                 results.append({
