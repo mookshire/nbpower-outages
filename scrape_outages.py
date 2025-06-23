@@ -25,7 +25,7 @@ async def fetch_region_data(playwright, name, district_code):
     url = f"https://www.nbpower.com/Open/SearchOutageResults.aspx?district={district_code}&il=0"
 
     try:
-        print(f"▶ Fetching {name} from {url}")
+        print(f"▶ Visiting {name} district {district_code}")
         await page.context.add_cookies([{
             'name': 'NBPLanguage',
             'value': 'en',
@@ -51,7 +51,8 @@ async def fetch_region_data(playwright, name, district_code):
         }
 
     except Exception as e:
-        print(f"❌ {name} failed: {e}")
+        print(f"❌ {name} FAILED: {e}")
+        await page.screenshot(path=f"{name.lower().replace(' ', '_')}.png")
         return {
             "region": name,
             "outages": -1,
