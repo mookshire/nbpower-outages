@@ -1,70 +1,54 @@
-import json
-from playwright.sync_api import sync_playwright, TimeoutError
+import asyncio import json from playwright.async_api import async_playwright
 
-regions = [
-    ("York", "0110"),
-    ("K.V.", "0210"),
-    ("Carleton", "0130"),
-    ("Charlotte", "0240"),
-    ("Kings", "0220"),
-    ("Kent", "0510"),
-    ("Moncton", "0520"),
-    ("Miramichi", "0420"),
-    ("Grand Falls", "0140"),
-    ("Acadian", "0440"),
-    ("Heat", "0410"),
-    ("Restigouche", "0430"),
-    ("Sackville", "0530"),
-    ("Shediac", "0540"),
-]
+Define region names and corresponding NB Power district codes
 
-def scrape():
-    print(">>> STARTING REGION SCRAPE")
+REGIONS = [ ("York", "0110"), ("K.V.", "0210"), ("Carleton", "0130"), ("Charlotte", "0240"), ("Kings", "0220"), ("Kent", "0510"), ("Moncton", "0520"), ("Miramichi", "0420"), ("Grand Falls", "0140"), ("Acadian", "0440"), ("Heat", "0410"), ("Restigouche", "0430"), ("Sackville", "0530"), ("Shediac", "0540"), ]
 
-    results = []
+async def scrape(): async with async_playwright() as p: browser = await p.chromium.launch(headless=True) context = await browser.new_context()
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(locale='en-CA')
-        page = context.new_page()
+# Bypass language selector by setting language preference cookie
+    await context.add_cookies([{
+        "name": "NBPLanguage",
+        "value": "en-CA",
+        "domain": "www.nbpower.com",
+        "path": "/",
+        "httpOnly": False,
+        "secure": True
+    }])
 
-        for name, code in regions:
-            url = f"https://www.nbpower.com/Open/SearchOutageResults.aspx?district={code}&il=0"
-            print(f"→ {name}: Visiting {url}")
-            try:
-                page.goto(url, timeout=15000)  # 15s timeout max
-                page.wait_for_selector("#ctl00_cphMain_lblOutageCount", timeout=10000)
-                outage = page.inner_text("#ctl00_cphMain_lblOutageCount")
-                customers = page.inner_text("#ctl00_cphMain_lblCustAffected")
-                print(f"✓ {name}: {outage}, {customers}")
+    page = await context.new_page()
+    result = []
 
-                results.append({
-                    "region": name,
-                    "outages": int(outage.split()[0]),
-                    "customers_affected": int(customers.split()[0].replace(",", ""))
-                })
-            except Exception as e:
-                print(f"⚠️ {name} FAILED: {e}")
-                results.append({
-                    "region": name,
-                    "outages": -1,
-                    "customers_affected": -1
-                })
+    for region_name, district_code in REGIONS:
+        url = f"https://www.nbpower.com/Open/SearchOutageResults.aspx?district={district_code}&il=0"
+        print(f"→ {region_name}: Visiting {url}")
 
-        browser.close()
+        try:
+            await page.goto(url, timeout=30000)
+            await page.wait_for_selector("#ctl00_cphMain_lblOutageCount", timeout=10000)
+            await page.wait_for_selector("#ctl00_cphMain_lblCustAffectedCount", timeout=10000)
 
-    results.append({
-        "timestamp": __import__("datetime").datetime.utcnow().isoformat()
-    })
+            outages = await page.inner_text("#ctl00_cphMain_lblOutageCount")
+            customers = await page.inner_text("#ctl00_cphMain_lblCustAffectedCount")
 
-    try:
-        with open("outages.json", "w") as f:
-            json.dump(results, f, indent=2)
-        print("✅ JSON written to file")
-    except Exception as e:
-        print(f"❌ Failed to write JSON: {e}")
+            outages = int(outages.replace(",", "").strip())
+            customers = int(customers.replace(",", "").strip())
+        except Exception as e:
+            print(f"⚠️ {region_name} FAILED: {e}")
+            outages = -1
+            customers = -1
 
-    print(">>> SCRAPE COMPLETE")
+        result.append({
+            "region": region_name,
+            "outages": outages,
+            "customers_affected": customers
+        })
 
-if __name__ == "__main__":
-    scrape()
+    await browser.close()
+
+    with open("outages.json", "w") as f:
+        json.dump(result, f, indent=2)
+    print("✅ JSON written to file")
+
+if name == "main": asyncio.run(scrape())
+
