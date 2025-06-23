@@ -26,6 +26,40 @@ async def fetch_region_data(playwright, name, district_code):
 
     try:
         await page.goto(url, timeout=20000)
-        # Wait for the outage and customer labels to load
         await page.wait_for_selector("#ctl00_cphMain_lblOutageCount", timeout=10000)
-        await page
+        await page.wait_for_selector("#ctl00_cphMain_lblCustomersAffected", timeout=10000)
+
+        outages = await page.locator("#ctl00_cphMain_lblOutageCount").inner_text()
+        customers = await page.locator("#ctl00_cphMain_lblCustomersAffected").inner_text()
+
+        return {
+            "region": name,
+            "outages": int(outages.replace(",", "").strip()),
+            "customers_affected": int(customers.replace(",", "").strip())
+        }
+
+    except Exception as e:
+        print(f"⚠️ {name} FAILED: {e}")
+        return {
+            "region": name,
+            "outages": -1,
+            "customers_affected": -1
+        }
+
+    finally:
+        await browser.close()
+
+async def main():
+    async with async_playwright() as playwright:
+        results = []
+        for name, code in REGIONS:
+            print(f"→ {name}: Visiting district {code}")
+            data = await fetch_region_data(playwright, name, code)
+            results.append(data)
+
+        with open("outages.json", "w") as f:
+            json.dump(results, f, indent=2)
+        print("✅ Saved data to outages.json")
+
+if __name__ == "__main__":
+    asyncio.run(main())
