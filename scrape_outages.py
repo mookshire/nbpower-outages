@@ -1,23 +1,23 @@
 import requests
 from bs4 import BeautifulSoup
 import json
-import re
 
+# Map region nicknames to NB Power district codes
 districts = {
-    "0110": "York",
-    "0120": "K.V.",
-    "0130": "Carleton",
-    "0140": "Charlotte",
-    "0150": "Kings",
-    "0160": "Kent",
-    "0170": "Moncton",
-    "0180": "Miramichi",
-    "0190": "Grand Falls",
-    "0200": "Acadian",
-    "0210": "Heat",
-    "0220": "Restigouche",
-    "0230": "Sackville",
-    "0240": "Shediac",
+    "York": "0110",
+    "K.V.": "0210",
+    "Carleton": "0130",
+    "Charlotte": "0240",
+    "Kings": "0220",
+    "Kent": "0510",
+    "Moncton": "0520",
+    "Miramichi": "0310",
+    "Grand Falls": "0140",
+    "Acadian": "0410",
+    "Heat": "0420",
+    "Restigouche": "0320",
+    "Sackville": "0610",
+    "Shediac": "0620"
 }
 
 base_url = "https://www.nbpower.com/Open/SearchOutageResults.aspx?district={}&il=0"
@@ -26,47 +26,34 @@ headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
-outage_data = []
+results = []
 
-for district_code, region_name in districts.items():
-    url = base_url.format(district_code)
+for region, code in districts.items():
+    url = base_url.format(code)
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
+        response = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        table = soup.find("table", class_="rgMasterTable")
-        if not table:
-            outages = 0
-            customers = 0
-        else:
-            rows = table.find_all("tr", class_=re.compile("rgRow|rgAltRow"))
-            outages = len(rows)
+        outage_count = soup.find("span", id="ctl00_cphMain_lblOutageCount")
+        customer_count = soup.find("span", id="ctl00_cphMain_lblCustAffect")
 
-            customers = 0
-            for row in rows:
-                cells = row.find_all("td")
-                if len(cells) >= 5:
-                    count_str = cells[4].text.strip().replace(",", "")
-                    try:
-                        customers += int(count_str)
-                    except ValueError:
-                        pass
+        outages = int(outage_count.text.strip()) if outage_count else -1
+        customers = int(customer_count.text.strip().replace(",", "")) if customer_count else -1
 
-        outage_data.append({
-            "region": region_name,
+        results.append({
+            "region": region,
             "outages": outages,
             "customers_affected": customers
         })
+
     except Exception as e:
-        print(f"Error fetching data for {region_name} ({district_code}): {e}")
-        outage_data.append({
-            "region": region_name,
-            "outages": None,
-            "customers_affected": None,
-            "error": str(e)
+        results.append({
+            "region": region,
+            "outages": -1,
+            "customers_affected": -1
         })
 
+# Write to outages.json
 with open("outages.json", "w") as f:
-    json.dump(outage_data, f, indent=2)
+    json.dump(results, f, indent=2)
 
