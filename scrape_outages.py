@@ -1,22 +1,22 @@
 import json
 from playwright.sync_api import sync_playwright
 
-# Map of region name to NB Power district URL
-REGIONS = [
-    ("York", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0110&il=0"),
-    ("K.V.", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0210&il=0"),
-    ("Carleton", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0130&il=0"),
-    ("Charlotte", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0240&il=0"),
-    ("Kings", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0220&il=0"),
-    ("Kent", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0510&il=0"),
-    ("Moncton", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0520&il=0"),
-    ("Miramichi", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0420&il=0"),
-    ("Grand Falls", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0140&il=0"),
-    ("Acadian", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0440&il=0"),
-    ("Chaleur", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0410&il=0"),
-    ("Restigouche", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0430&il=0"),
-    ("Sackville", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0530&il=0"),
-    ("Shediac", "https://www.nbpower.com/Open/SearchOutageResults.aspx?district=0540&il=0")
+# List of districts and their URLs
+regions = [
+    ("York", "0110"),
+    ("K.V.", "0210"),
+    ("Carleton", "0130"),
+    ("Charlotte", "0240"),
+    ("Kings", "0220"),
+    ("Kent", "0510"),
+    ("Moncton", "0520"),
+    ("Miramichi", "0420"),
+    ("Grand Falls", "0140"),
+    ("Acadian", "0440"),
+    ("Heat", "0410"),
+    ("Restigouche", "0430"),
+    ("Sackville", "0530"),
+    ("Shediac", "0540"),
 ]
 
 def scrape():
@@ -26,35 +26,20 @@ def scrape():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
-        for name, url in REGIONS:
-            page.goto(url)
+        for name, code in regions:
+            url = f"https://www.nbpower.com/Open/SearchOutageResults.aspx?district={code}&il=0"
+            page.goto(url, timeout=60000)
 
-            # If redirected to language screen, click English
-            if "lang" in page.url:
-                try:
-                    page.click("text=English")
-                    page.wait_for_timeout(1000)
-                except:
-                    pass  # Already redirected
+            try:
+                outage_text = page.inner_text("#ctl00_cphMain_lblOutageCount")
+                cust_text = page.inner_text("#ctl00_cphMain_lblCustAffected")
 
-            page.wait_for_load_state("networkidle")
-
-            if "There are currently no outages in this district" in page.content():
-                outages = 0
+                # Extract numbers (fallback to -1 if not found)
+                outages = int(outage_text.split()[0]) if outage_text else -1
+                customers = int(cust_text.split()[0].replace(",", "")) if cust_text else 0
+            except:
+                outages = -1
                 customers = 0
-            else:
-                try:
-                    rows = page.locator("table tr").all()
-                    outages = len(rows) - 1  # Subtract header
-                    customers = 0
-                    for row in rows[1:]:
-                        cells = row.locator("td").all()
-                        if len(cells) >= 6:
-                            cust_text = cells[5].inner_text().strip().replace(",", "")
-                            customers += int(cust_text)
-                except Exception as e:
-                    outages = 0
-                    customers = 0
 
             results.append({
                 "region": name,
@@ -64,7 +49,7 @@ def scrape():
 
         browser.close()
 
-    with open("outages.json", "w", encoding="utf-8") as f:
+    with open("outages.json", "w") as f:
         json.dump(results, f, indent=2)
 
 if __name__ == "__main__":
