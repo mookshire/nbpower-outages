@@ -2,71 +2,74 @@
   {
     "region": "York",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
   },
   {
     "region": "K.V.",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
   },
   {
     "region": "Carleton",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
   },
   {
     "region": "Charlotte",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
   },
   {
     "region": "Kings",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
   },
   {
     "region": "Kent",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
   },
   {
     "region": "Moncton",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
   },
   {
     "region": "Miramichi",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
   },
   {
     "region": "Grand Falls",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
   },
   {
     "region": "Acadian",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
   },
   {
-    "region": "Chaleur",
+    "region": "Heat",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
   },
   {
     "region": "Restigouche",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
   },
   {
     "region": "Sackville",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
   },
   {
     "region": "Shediac",
     "outages": -1,
-    "customers_affected": 0
+    "customers_affected": -1
+  },
+  {
+    "timestamp": "2025-06-23T06:19:40.032105Z"
   }
 ]
